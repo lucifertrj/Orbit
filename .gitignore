@@ -1,0 +1,21 @@
+# Credentials
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+.streamlit/credentials.toml
+
+# Python environments and bytecode
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# uv cache
+.uv-cache/
+.uv/
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
