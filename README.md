@@ -1,5 +1,15 @@
 # Orbit
 
+## Why I built Orbit
+
+I was recently in Cape Town and wanted to see more of the city. But whenever I considered a place, the same question came up: how would I get there, and would I feel comfortable exploring that area?
+
+It’s a concern many people in South Africa know well. Stats SA estimates there were **515,000 street robbery incidents in 2025/26**. Its survey also found that **37.9% of people felt safe walking alone in their neighbourhood after dark**. These figures describe the national picture; they don't tell a traveler the risk at a particular place. ([Stats SA, 2025/26](https://www.statssa.gov.za/?p=19867))
+
+![Cape Town, where the idea for Orbit began](assets/capetown.png)
+
+That experience inspired me to build Orbit. It helps travelers find places that match their interests, see them on a map, and bring practical safety guidance into the planning process. My goal is to make choosing where to explore in South Africa feel easier and more informed.
+
 **Safety-aware place discovery for travel in South Africa.** Orbit uses a traveler's saved preferences to find and map places, then pairs the shortlist with practical safety guidance and links to official sources.
 
 Save a traveler profile once and retrieve it on return using the same name. Search a destination by interest, filter Google Maps results by rating or price, compare place coordinates on a map, and review relevant official safety guidance. Select a place and click **Explore more** to ask Claude for distinctive nearby ideas tailored to the saved profile.
