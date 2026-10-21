@@ -14,9 +14,9 @@ That experience inspired me to build Orbit. It helps travelers find places that 
 
 Save a traveler profile once and retrieve it on return using the same name. Search a destination by interest, filter Google Maps results by rating or price, compare place coordinates on a map, and review relevant official safety guidance. Select a place and click **Explore more** to ask Claude for distinctive nearby ideas tailored to the saved profile.
 
-> About Orbit
+> Watch launch Orbit
 
-https://github.com/user-attachments/assets/36762b3b-d2f2-4e6a-9413-1c4317e2be30
+https://github.com/user-attachments/assets/9cb2112d-1973-497a-8c8c-e29e35419e8c
 
 ## Orbit Match
 
