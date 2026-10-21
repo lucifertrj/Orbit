@@ -6,7 +6,8 @@ import streamlit as st
 
 from agent import explore_place, load_traveler_memory, save_traveler_memory
 from config import secret
-from tools import places_search
+from recommendations import PRIORITY_SEARCH_TERMS, rank_places
+from tools import official_safety_search, places_search
 
 
 st.set_page_config(page_title="Orbit · South Africa travel safety", page_icon="◌", layout="wide")
@@ -41,6 +42,8 @@ def init_state():
         "profile_checked": False,
         "memories": [],
         "places": [],
+        "safety_sources": [],
+        "safety_search_error": "",
         "has_searched": False,
         "destination": "",
         "place_query": "",
@@ -102,7 +105,6 @@ def profile_from_memories(memories):
 def onboarding():
     st.markdown('<div class="eyebrow">Traveler profile</div><div class="hero-title">Explore South Africa<br>with safety in mind.</div>', unsafe_allow_html=True)
     st.markdown('<div class="hero-copy">Continue with your saved profile, or set your preferences once. Orbit remembers them in Mem0 and uses them to personalize place discovery.</div>', unsafe_allow_html=True)
-    st.info("Place listings and ratings help you compare options; they do not guarantee that a place or route is safe. Check current local advice and confirm safety arrangements with the venue or operator.")
     st.text_input("Your name", key="traveler_id_input", placeholder="Add your name", help="Use the same name when you return to retrieve your saved preferences.")
     if not st.session_state.profile_checked:
         continue_col, new_col = st.columns(2)
@@ -229,14 +231,17 @@ def render_map(places, selected_place):
 def dashboard():
     profile = st.session_state.traveler_memory
     st.markdown('<div class="eyebrow">Personalized place discovery · South Africa</div><div class="hero-title">Find a place that fits<br>how you travel.</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="hero-copy">Your saved preferences guide place discovery: {escape(personalized_terms(profile))}. Search any destination in South Africa, compare ratings and price indicators, and view place coordinates on the map.</div>', unsafe_allow_html=True)
-    with st.expander("South Africa travel safety measures", expanded=True):
+    st.markdown('<div class="hero-copy">Search a South African destination to find places that fit your interests and preferred surroundings. Compare real listings on a map, use practical safety guidance to plan your visit, and ask Orbit what is unique about a place when you choose Explore more.</div>', unsafe_allow_html=True)
+    with st.expander("How Orbit Match ranks places"):
+        st.write("Your saved safety priority shapes the place-search wording. Orbit then ranks the returned listings using text match to your search (40%), match to your saved interests (30%), a review score adjusted for review count (20%), and listing detail such as address and coordinates (10%). The match score is a shortlist aid; it is not a crime or personal-risk prediction.")
+    with st.expander("Practical safety plan for South Africa", expanded=True):
         st.markdown(
-            "Plan transport with a reliable, pre-booked provider; avoid walking alone after dark or through isolated areas; "
-            "keep valuables out of sight; and check current advice for your destination before setting out. Place ratings "
-            "and listings are not a safety assessment, and no listing can guarantee a safe visit."
+            "**Getting around:** book e-hailing rides in the app, wait somewhere safe, and check the car and driver before boarding. "
+            "**After dark:** avoid walking alone or using isolated routes and beaches. **Driving:** plan your route, stay on main roads, "
+            "and keep valuables out of sight. For hiking, use busy marked trails and go with a registered guide or group."
         )
-        st.link_button("Read official South Africa safety advice ↗", "https://www.gov.uk/foreign-travel-advice/south-africa/safety-and-security")
+        st.caption("Mobile emergency number: 112 · Police: 10111")
+        st.link_button("Read current official South Africa safety advice ↗", "https://www.gov.uk/foreign-travel-advice/south-africa/safety-and-security")
     with st.expander("Your saved preferences"):
         st.write(personalized_terms(profile))
         if st.button("Update preferences"):
@@ -253,6 +258,8 @@ def dashboard():
     if st.button("Find places", type="primary", width="stretch"):
         st.session_state.has_searched = True
         st.session_state.places = []
+        st.session_state.safety_sources = []
+        st.session_state.safety_search_error = ""
         st.session_state.place_error = ""
         if not destination.strip():
             st.session_state.place_error = "Enter a destination in South Africa first."
@@ -274,9 +281,16 @@ def dashboard():
             if not request:
                 st.session_state.place_error = "Describe what you want to find."
             else:
+                search_hint = PRIORITY_SEARCH_TERMS.get(profile.get("safety_priority"), "")
+                tailored_query = " ".join(part for part in (request, search_hint) if part)
                 try:
-                    with st.spinner("Finding places that fit your preferences…"):
-                        st.session_state.places = places_search(destination.strip(), request)
+                    with st.spinner("Finding places and checking official safety guidance…"):
+                        found = places_search(destination.strip(), tailored_query)
+                        st.session_state.places = rank_places(found, request, profile)
+                        try:
+                            st.session_state.safety_sources = official_safety_search(destination.strip())
+                        except Exception as exc:
+                            st.session_state.safety_search_error = str(exc)
                     st.session_state.destination = destination.strip()
                     st.session_state.place_query = request
                     st.session_state.place_insight = ""
@@ -286,6 +300,18 @@ def dashboard():
     if st.session_state.place_error:
         st.error(st.session_state.place_error)
 
+    if st.session_state.has_searched and st.session_state.destination and not st.session_state.place_error:
+        with st.expander(f"Official safety guidance for {st.session_state.destination}", expanded=True):
+            if st.session_state.safety_sources:
+                for source in st.session_state.safety_sources:
+                    st.markdown(f"**{escape(source['title'])}**  \n{escape(source['snippet'])}")
+                    st.link_button("Open official guidance ↗", source["link"], key=f"safety-{source['link']}")
+            else:
+                st.write("Use official South Africa travel guidance for transport, walking, driving, and outdoor activity advice.")
+                if st.session_state.safety_search_error:
+                    st.caption("The destination-specific source search is unavailable right now.")
+                st.link_button("Official South Africa safety advice ↗", "https://www.gov.uk/foreign-travel-advice/south-africa/safety-and-security")
+
     if not st.session_state.places:
         if st.session_state.has_searched and not st.session_state.place_error:
             st.info("No places came back for that search. Try a shorter phrase, a nearby area, or a broader category.")
@@ -294,6 +320,7 @@ def dashboard():
         return
 
     st.markdown(f'<div class="section-title">Places for {escape(st.session_state.destination)}</div><div class="subtle">Search: {escape(st.session_state.place_query)} · Results come from Google Maps via SerpApi.</div>', unsafe_allow_html=True)
+    st.caption(f"Search preference: {escape(profile.get('safety_priority', ''))} · Sorted by Orbit Match: category fit, profile fit, review confidence, and listing completeness.")
     filter_a, filter_b = st.columns(2)
     with filter_a:
         min_rating_label = st.selectbox("Minimum rating", ["Any", "3.5+", "4.0+", "4.5+"], index=0)
@@ -310,10 +337,12 @@ def dashboard():
         place_options = [f"{place['name']} · {place.get('address') or place.get('category') or 'Place'}" for place in visible]
         selected_label = st.selectbox("Choose a place", place_options)
         selected = visible[place_options.index(selected_label)]
-        st.markdown(f'<div class="card"><div class="card-title">{escape(selected["name"])}</div><div class="subtle">{escape(selected.get("category", ""))} · {escape(selected.get("address", ""))}</div><p>Rating: {escape(str(selected.get("rating") or "Not listed"))} · Reviews: {escape(str(selected.get("reviews") or "Not listed"))} · Price: {escape(str(selected.get("price") or "Not listed"))}</p><div class="subtle">Coordinates: {escape(str(selected.get("latitude") if selected.get("latitude") is not None else "Not listed"))}, {escape(str(selected.get("longitude") if selected.get("longitude") is not None else "Not listed"))}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card"><div class="card-title">{escape(selected["name"])} · Orbit Match {selected["orbit_score"]}/100</div><div class="subtle">{escape(selected.get("category", ""))} · {escape(selected.get("address", ""))}</div><p>Rating: {escape(str(selected.get("rating") or "Not listed"))} · Reviews: {escape(str(selected.get("reviews") or "Not listed"))} · Price: {escape(str(selected.get("price") or "Not listed"))}</p><div class="subtle">Coordinates: {escape(str(selected.get("latitude") if selected.get("latitude") is not None else "Not listed"))}, {escape(str(selected.get("longitude") if selected.get("longitude") is not None else "Not listed"))}</div></div>', unsafe_allow_html=True)
+        breakdown = selected["score_breakdown"]
+        st.caption(f"Why it ranks here: category match {breakdown['search_fit']}% · profile match {breakdown['profile_fit']}% · review confidence {breakdown['review_confidence']}% · listing details {breakdown['listing_completeness']}%.")
         if str(selected.get("link") or "").startswith("https://"):
             st.link_button("Open place source ↗", selected["link"])
-        st.caption("Ratings and search listings are comparison signals, not a safety guarantee. Verify current conditions and the venue's safety arrangements before you go.")
+        st.caption("Orbit Match helps shortlist options. Use the linked official guidance above to plan transport and activities around current local advice.")
         if st.button("Explore more · what’s unique here?", type="primary"):
             try:
                 with st.spinner("Finding ideas for this place and your interests…"):

@@ -1,4 +1,5 @@
 from serpapi import Client
+from urllib.parse import urlparse
 
 from config import secret
 
@@ -34,6 +35,32 @@ def nearby_places_search(destination, place_name, query, latitude=None, longitud
     if latitude is not None and longitude is not None:
         params["ll"] = f"@{latitude},{longitude},14z"
     return normalize_places(serp_search(params))
+
+
+def official_safety_search(destination):
+    """Find official travel-safety pages relevant to a South African destination."""
+    payload = serp_search({
+        "engine": "google",
+        "q": f"{destination} South Africa visitor travel safety advice",
+        "location": destination,
+        "gl": "za",
+        "hl": "en",
+    })
+    trusted_domains = (
+        "gov.uk", "gov.za", "saps.gov.za", "capetown.gov.za", "westerncape.gov.za",
+        "joburg.org.za", "durban.gov.za", "sanparks.org",
+    )
+    results = []
+    for result in payload.get("organic_results", []) or []:
+        link = result.get("link") or ""
+        host = urlparse(link).hostname or ""
+        if any(host == domain or host.endswith(f".{domain}") for domain in trusted_domains):
+            results.append({
+                "title": result.get("title") or "Official travel-safety guidance",
+                "snippet": result.get("snippet") or "",
+                "link": link,
+            })
+    return results[:4]
 
 
 def normalize_places(payload):

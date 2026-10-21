@@ -1,17 +1,38 @@
-# Credentials
+# Credentials and local settings
 .env
 .env.*
 !.env.example
 .streamlit/secrets.toml
 .streamlit/credentials.toml
 
-# Python environments and bytecode
+# Python bytecode and native extensions
+__pycache__/
+*.py[codz]
+*$py.class
+*.so
+.Python
+
+# Virtual environments and package/build output
 .venv/
 venv/
-__pycache__/
-*.py[cod]
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+*.egg
 
-# uv cache
+# Test and tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# uv cache (keep uv.lock tracked)
 .uv-cache/
 .uv/
 
